@@ -18,33 +18,20 @@ public class TrilaterationModule {
 //        QRDecomposition qrDecomposition = new QRDecomposition(matrix);
 //        Jama.Matrix orthogonal = qrDecomposition.getQ();
         
-        Jama.Matrix posMatrix = new Matrix(positions, positions.length, positions[0].length);
-        Jama.Matrix transposePosMatrix = posMatrix.transpose();
-        Jama.Matrix distanceMatrix = new Matrix(distances, distances.length);
-        
-//        Jama.Matrix posTimesPosTranspose = posMatrix.arrayTimes(transposePosMatrix);
-        
-        // Calculate a
+        Jama.Matrix a = new Matrix(positions[0].length, 1);
+        // Calculate a     
         for(int i = 0; i < distances.length; i++) {
-            Jama.Matrix p_i = new Matrix(positions[i], positions[i].length);
-            Jama.Matrix p_i_transpose = p_i.transpose();
+            Jama.Matrix position = new Matrix(positions[i], positions[i].length);
+            Jama.Matrix transposePosition = position.transpose();
             
-            Jama.Matrix val = p_i.times(p_i_transpose);
-            System.out.println(i);
-            System.out.println("p_i");
-            p_i.print(3, 3);
-            System.out.println("p_i_transpose");
-            p_i_transpose.print(3, 3);
-            System.out.println("val");
-            val.print(3, 3);
+            Jama.Matrix leftTerm = position.times(transposePosition).times(position);
+            Jama.Matrix rightTerm = position.times(distances[i]*distances[i]);
+            
+            a.plusEquals(leftTerm.minus(rightTerm));
         }
-//        Jama.Matrix temp1 = posTimesPosTranspose.arrayTimes(posMatrix);
-//        Jama.Matrix temp2 = distanceMatrix.arrayTimes(distanceMatrix).arrayTimes(posMatrix);
-//        Jama.Matrix a = temp1.minus(temp2);
-//        
-//        // Calculate B
-//        temp1 = posTimesPosTranspose.times(-2);
-//        temp2 = posTimesPosTranspose.times(arg0);
+        
+        System.out.println("a");
+        a.print(3, 3);
         
         return null;
     }
@@ -53,9 +40,9 @@ public class TrilaterationModule {
 
         TrilaterationModule triMod = new TrilaterationModule();
         
-        double[][] positions = {{3., 4., 5.},
-                                {6., 7., 8.},
-                                {9., 10., 11.}};
+        double[][] positions = {{0., 1., 2.},
+                                {3., 4., 5.},
+                                {6., 7., 8.}};
         
         double[] distances = {5., 3., 2.};
         
