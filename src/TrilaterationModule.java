@@ -13,17 +13,14 @@ public class TrilaterationModule {
     }
 
     public RectCoordinates calculateLocation(double[] distances, double[][] positions) {
-
-//        Jama.Matrix matrix = new Matrix(values);
-//        QRDecomposition qrDecomposition = new QRDecomposition(matrix);
-//        Jama.Matrix orthogonal = qrDecomposition.getQ();
         int numDimensions = positions[0].length;
         int numSamples = positions.length;
         
         Jama.Matrix a = new Matrix(numDimensions, 1);  
         Jama.Matrix b = new Matrix(numDimensions, numDimensions); 
         Jama.Matrix c = new Matrix(numDimensions, 1);
-        // Calculate a, b, and c
+        Jama.Matrix h = new Matrix(numDimensions, numDimensions);
+        // Calculate a, b, c, and partially calculate h
         for(int i = 0; i < numSamples; i++) {
             Jama.Matrix position = new Matrix(positions[i], numDimensions);
             Jama.Matrix transposePosition = position.transpose();
@@ -43,16 +40,20 @@ public class TrilaterationModule {
             b.plusEquals(bLeftTerm.minus(bMiddleTerm).plus(bRightTerm));
                     
             // c
-            c.plusEquals(position);    
+            c.plusEquals(position);
+            
+            // h
+            h.plusEquals(posTimesTranspose);
         }
         
         double inverseNumSamples = 1.0/numSamples;
         a.times(inverseNumSamples); // a's calculation done
         b.times(inverseNumSamples); // b's calculation done
         c.times(inverseNumSamples); // c's calculation done
-           
+         
+        Jama.Matrix twoCTimesCTranspose = c.times(2).times(c.transpose());
         // Calculate f
-        Jama.Matrix f = a.plus(b.times(c)).plus(c.times(2).times(c.transpose()).times(c)); // f's calculation done
+        Jama.Matrix f = a.plus(b.times(c)).plus(twoCTimesCTranspose.times(c)); // f's calculation done
         
         // Calculate fPrime
         Jama.Matrix fPrime = new Matrix(numDimensions - 1, 1);
@@ -60,6 +61,19 @@ public class TrilaterationModule {
             fPrime.set(i, 0, f.get(i, 0) - f.get(numDimensions - 1, 0));
         }
         
+        h.times(-2.0/numSamples).plus(twoCTimesCTranspose); // f's calculation done
+        
+        // Calculate hPrime
+        Jama.Matrix hPrime = new Matrix(numDimensions - 1, numDimensions);
+        for(int i = 0; i < hPrime.getRowDimension(); i++) {
+            for(int j = 0; j < hPrime.getColumnDimension(); j++) {
+                hPrime.set(i, j, h.get(i, j) - h.get(numDimensions - 1, j));
+            }
+        }
+        
+        //QRDecomposition hPrimeQRDecomposition = new QRDecomposition(hPrime);
+        //Jama.Matrix q = hPrimeQRDecomposition.getQ();
+        //Jama.Matrix u = hPrimeQRDecomposition.getR();        
               
         System.out.println("a");
         a.print(3, 3);
@@ -71,6 +85,14 @@ public class TrilaterationModule {
         f.print(3, 3);
         System.out.println("fPrime");
         fPrime.print(3, 3);
+        System.out.println("h");
+        h.print(3, 3);
+        System.out.println("hPrime");
+        hPrime.print(3, 3);
+        //System.out.println("q");
+        //q.print(3, 3);
+        //System.out.println("u");
+        //u.print(3, 3);
         
         return null;
     }
