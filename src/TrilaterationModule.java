@@ -20,12 +20,15 @@ public class TrilaterationModule {
         Jama.Matrix b = new Matrix(numDimensions, numDimensions); 
         Jama.Matrix c = new Matrix(numDimensions, 1);
         Jama.Matrix h = new Matrix(numDimensions, numDimensions);
+        Jama.Matrix qTransposeTimesQFirstTerm = new Matrix(1, 1);
+        double qTransposeTimesQSecondTerm = 0;
         // Calculate a, b, c, and partially calculate h
         for(int i = 0; i < numSamples; i++) {
             Jama.Matrix position = new Matrix(positions[i], numDimensions);
             Jama.Matrix transposePosition = position.transpose();
             Jama.Matrix posTimesTranspose = position.times(transposePosition);
             double distanceSquared = distances[i]*distances[i];
+            qTransposeTimesQSecondTerm += distanceSquared;
             
             // a
             Jama.Matrix aLeftTerm = posTimesTranspose.times(position);
@@ -35,7 +38,8 @@ public class TrilaterationModule {
             // b
             Jama.Matrix bLeftTerm = posTimesTranspose.times(-2);
             Jama.Matrix identity = Jama.Matrix.identity(numDimensions, numDimensions);
-            Jama.Matrix bMiddleTerm = identity.times(transposePosition.times(position).get(0, 0));
+            Jama.Matrix transposeTimesPos = transposePosition.times(position);
+            Jama.Matrix bMiddleTerm = identity.times(transposeTimesPos.get(0, 0));
             Jama.Matrix bRightTerm = identity.times(distanceSquared);
             b.plusEquals(bLeftTerm.minus(bMiddleTerm).plus(bRightTerm));
                     
@@ -44,6 +48,9 @@ public class TrilaterationModule {
             
             // h
             h.plusEquals(posTimesTranspose);
+            
+            // qTransposeTimesQFirstTerm
+            qTransposeTimesQFirstTerm.plusEquals(transposeTimesPos);
         }
         
         double inverseNumSamples = 1.0/numSamples;
@@ -71,10 +78,17 @@ public class TrilaterationModule {
             }
         }
         
-        //QRDecomposition hPrimeQRDecomposition = new QRDecomposition(hPrime);
-        //Jama.Matrix q = hPrimeQRDecomposition.getQ();
-        //Jama.Matrix u = hPrimeQRDecomposition.getR();        
-              
+        // NOTE: These three lines might be incorrect due to the inability get the
+        // Q when m is less than n in a m x n matrix. 
+        QRDecomposition hPrimeQRDecomposition = new QRDecomposition(hPrime.transpose());
+        Jama.Matrix q = hPrimeQRDecomposition.getQ().transpose();
+        Jama.Matrix u = hPrimeQRDecomposition.getR().transpose();
+        
+        qTransposeTimesQFirstTerm.times(-inverseNumSamples);
+        qTransposeTimesQSecondTerm /= numSamples;
+        Jama.Matrix qTransposeTimesQThirdTerm = c.transpose().times(c);
+        double qTransposeTimesQ = qTransposeTimesQFirstTerm.get(0, 0) + qTransposeTimesQSecondTerm + qTransposeTimesQThirdTerm.get(0, 0);
+                
         System.out.println("a");
         a.print(3, 3);
         System.out.println("b");
@@ -89,10 +103,11 @@ public class TrilaterationModule {
         h.print(3, 3);
         System.out.println("hPrime");
         hPrime.print(3, 3);
-        //System.out.println("q");
-        //q.print(3, 3);
-        //System.out.println("u");
-        //u.print(3, 3);
+        System.out.println("q");
+        q.print(3, 3);
+        System.out.println("u");
+        u.print(3, 3);
+        System.out.println("qT*q = " + qTransposeTimesQ);
         
         return null;
     }
