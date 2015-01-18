@@ -1,7 +1,7 @@
-import java.util.List;
-
-import Jama.Matrix;
-import Jama.QRDecomposition;
+import org.apache.commons.math3.linear.RealMatrix;
+import org.apache.commons.math3.linear.QRDecomposition;
+import org.apache.commons.math3.linear.Array2DRowRealMatrix;
+import org.apache.commons.math3.linear.MatrixUtils;
 
 public class TrilaterationModule {
 
@@ -15,113 +15,128 @@ public class TrilaterationModule {
     public RectCoordinates calculateLocation(double[] distances, double[][] positions) {
         int numDimensions = positions[0].length;
         int numSamples = positions.length;
-        
-        Jama.Matrix a = new Matrix(numDimensions, 1);  
-        Jama.Matrix b = new Matrix(numDimensions, numDimensions); 
-        Jama.Matrix c = new Matrix(numDimensions, 1);
-        Jama.Matrix h = new Matrix(numDimensions, numDimensions);
-        Jama.Matrix qTransposeTimesQFirstTerm = new Matrix(1, 1);
+         
+        RealMatrix a = new Array2DRowRealMatrix(numDimensions, 1);
+        RealMatrix b = new Array2DRowRealMatrix(numDimensions, numDimensions);
+        RealMatrix c = new Array2DRowRealMatrix(numDimensions, 1);
+        RealMatrix h = new Array2DRowRealMatrix(numDimensions, numDimensions);
+        double qTransposeTimesQFirstTerm = 0;
         double qTransposeTimesQSecondTerm = 0;
         // Calculate a, b, c, and partially calculate h
         for(int i = 0; i < numSamples; i++) {
-            Jama.Matrix position = new Matrix(positions[i], numDimensions);
-            Jama.Matrix transposePosition = position.transpose();
-            Jama.Matrix posTimesTranspose = position.times(transposePosition);
+            RealMatrix position = new Array2DRowRealMatrix(positions[i]);
+            RealMatrix transposePosition = position.transpose();
+            RealMatrix posTimesTranspose = position.multiply(transposePosition);
             double distanceSquared = distances[i]*distances[i];
             qTransposeTimesQSecondTerm += distanceSquared;
             
             // a
-            Jama.Matrix aLeftTerm = posTimesTranspose.times(position);
-            Jama.Matrix aRightTerm = position.times(distanceSquared); 
-            a.plusEquals(aLeftTerm.minus(aRightTerm));
+            RealMatrix aLeftTerm = posTimesTranspose.multiply(position);
+            RealMatrix aRightTerm = position.scalarMultiply(distanceSquared);
+            a = a.add(aLeftTerm.subtract(aRightTerm));
   
             // b
-            Jama.Matrix bLeftTerm = posTimesTranspose.times(-2);
-            Jama.Matrix identity = Jama.Matrix.identity(numDimensions, numDimensions);
-            Jama.Matrix transposeTimesPos = transposePosition.times(position);
-            Jama.Matrix bMiddleTerm = identity.times(transposeTimesPos.get(0, 0));
-            Jama.Matrix bRightTerm = identity.times(distanceSquared);
-            b.plusEquals(bLeftTerm.minus(bMiddleTerm).plus(bRightTerm));
+            RealMatrix bLeftTerm = posTimesTranspose.scalarMultiply(-2);
+            RealMatrix identity = MatrixUtils.createRealIdentityMatrix(numDimensions);
+            double transposeTimesPos = transposePosition.multiply(position).getEntry(0, 0);
+            RealMatrix bMiddleTerm = identity.scalarMultiply(transposeTimesPos);
+            RealMatrix bRightTerm = identity.scalarMultiply(distanceSquared);
+            b = b.add(bLeftTerm.subtract(bMiddleTerm).add(bRightTerm));
                     
             // c
-            c.plusEquals(position);
+            c = c.add(position);
             
             // h
-            h.plusEquals(posTimesTranspose);
+            h = h.add(posTimesTranspose);
             
             // qTransposeTimesQFirstTerm
-            qTransposeTimesQFirstTerm.plusEquals(transposeTimesPos);
+            qTransposeTimesQFirstTerm += transposeTimesPos;
         }
         
         double inverseNumSamples = 1.0/numSamples;
-        a.times(inverseNumSamples); // a's calculation done
-        b.times(inverseNumSamples); // b's calculation done
-        c.times(inverseNumSamples); // c's calculation done
-         
-        Jama.Matrix twoCTimesCTranspose = c.times(2).times(c.transpose());
+        a = a.scalarMultiply(inverseNumSamples); // a's calculation done
+        b = b.scalarMultiply(inverseNumSamples); // b's calculation done
+        c = c.scalarMultiply(inverseNumSamples); // c's calculation done
+        
+        RealMatrix twoCTimesCTranspose = c.scalarMultiply(2).multiply(c.transpose());
         // Calculate f
-        Jama.Matrix f = a.plus(b.times(c)).plus(twoCTimesCTranspose.times(c)); // f's calculation done
+        RealMatrix f = a.add(b.multiply(c)).add(twoCTimesCTranspose.multiply(c)); // f's calculation done
         
         // Calculate fPrime
-        Jama.Matrix fPrime = new Matrix(numDimensions - 1, 1);
+        RealMatrix fPrime = new Array2DRowRealMatrix(numDimensions - 1, 1);
         for(int i = 0; i < fPrime.getRowDimension(); i++) {
-            fPrime.set(i, 0, f.get(i, 0) - f.get(numDimensions - 1, 0));
+            fPrime.setEntry(i, 0, f.getEntry(i, 0) - f.getEntry(numDimensions - 1, 0));
         }
         
-        h.times(-2.0/numSamples).plus(twoCTimesCTranspose); // f's calculation done
+        h = h.scalarMultiply(-2.0/numSamples).add(twoCTimesCTranspose); // h's calculation done
         
         // Calculate hPrime
-        Jama.Matrix hPrime = new Matrix(numDimensions - 1, numDimensions);
+        RealMatrix hPrime = new Array2DRowRealMatrix(numDimensions - 1, numDimensions);
         for(int i = 0; i < hPrime.getRowDimension(); i++) {
             for(int j = 0; j < hPrime.getColumnDimension(); j++) {
-                hPrime.set(i, j, h.get(i, j) - h.get(numDimensions - 1, j));
+                hPrime.setEntry(i, j, h.getEntry(i, j) - h.getEntry(numDimensions - 1, j));
             }
         }
         
-        // NOTE: These three lines might be incorrect due to the inability get the
-        // Q when m is less than n in a m x n matrix. 
-        QRDecomposition hPrimeQRDecomposition = new QRDecomposition(hPrime.transpose());
-        Jama.Matrix q = hPrimeQRDecomposition.getQ().transpose();
-        Jama.Matrix u = hPrimeQRDecomposition.getR().transpose();
+        QRDecomposition qrDecomp = new QRDecomposition(hPrime);
+        RealMatrix q = qrDecomp.getQ();
+        RealMatrix u = qrDecomp.getR();
         
-        qTransposeTimesQFirstTerm.times(-inverseNumSamples);
+        qTransposeTimesQFirstTerm *= -inverseNumSamples;
         qTransposeTimesQSecondTerm /= numSamples;
-        Jama.Matrix qTransposeTimesQThirdTerm = c.transpose().times(c);
-        double qTransposeTimesQ = qTransposeTimesQFirstTerm.get(0, 0) + qTransposeTimesQSecondTerm + qTransposeTimesQThirdTerm.get(0, 0);
+        double qTransposeTimesQThirdTerm = c.transpose().multiply(c).getEntry(0, 0);
+        double qTransposeTimesQ = qTransposeTimesQFirstTerm + qTransposeTimesQSecondTerm + qTransposeTimesQThirdTerm;
+        
+        if(numDimensions == 3) {
+            
+        }
+        else if(numDimensions == 2) {
+            
+        }
                 
         System.out.println("a");
-        a.print(3, 3);
+        printRealMatrix(a);
         System.out.println("b");
-        b.print(3, 3);
+        printRealMatrix(b);
         System.out.println("c");
-        c.print(3, 3);
+        printRealMatrix(c);
         System.out.println("f");
-        f.print(3, 3);
+        printRealMatrix(f);
         System.out.println("fPrime");
-        fPrime.print(3, 3);
+        printRealMatrix(fPrime);
         System.out.println("h");
-        h.print(3, 3);
+        printRealMatrix(h);
         System.out.println("hPrime");
-        hPrime.print(3, 3);
+        printRealMatrix(hPrime);
         System.out.println("q");
-        q.print(3, 3);
+        printRealMatrix(q);
         System.out.println("u");
-        u.print(3, 3);
+        printRealMatrix(u);
         System.out.println("qT*q = " + qTransposeTimesQ);
         
         return null;
+    }
+    
+    public void printRealMatrix(RealMatrix matrix) {
+        for(int i = 0; i < matrix.getRowDimension(); i++) {
+            for(int j = 0; j < matrix.getColumnDimension(); j++) {
+                System.out.print(matrix.getEntry(i, j) + " ");
+            }
+            System.out.println();
+        }
+        System.out.println();
     }
 
     public static void main(String[] args) {
 
         TrilaterationModule triMod = new TrilaterationModule();
         
-        double[][] positions = {{0., 1., 2.},
-                                {3., 4., 5.},
-                                {6., 7., 8.},
-                                {9., 10., 11.}};
+        double[][] positions = {{0., 0., 0.},
+                                {0., 2., 2.},
+                                {3., 0., 4.},
+                                {2., 5., 1.}};
         
-        double[] distances = {1., 1., 1., 1.};
+        double[] distances = {4.2426, 3.7417, 5., 2.4495};
         
         triMod.calculateLocation(distances, positions);
     }
