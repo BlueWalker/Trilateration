@@ -14,11 +14,4 @@
 	<natures>
 		<nature>org.eclipse.jdt.core.javanature</nature>
 	</natures>
-	<linkedResources>
-		<link>
-			<name>src/RectCoordinates.java</name>
-			<type>1</type>
-			<location>C:/Users/Josh/Documents/GitHub/Pathfinding/src/RectCoordinates.java</location>
-		</link>
-	</linkedResources>
 </projectDescription>
