@@ -87,8 +87,46 @@ public class TrilaterationModule {
         double qTransposeTimesQThirdTerm = c.transpose().multiply(c).getEntry(0, 0);
         double qTransposeTimesQ = qTransposeTimesQFirstTerm + qTransposeTimesQSecondTerm + qTransposeTimesQThirdTerm;
         
+        RealMatrix v = q.transpose().multiply(fPrime);
+        
         if(numDimensions == 3) {
+            double u11 = u.getEntry(0, 0);
+            double u12 = u.getEntry(0, 1);
+            double u13 = u.getEntry(0, 2);
+            double u22 = u.getEntry(1, 1);
+            double u23 = u.getEntry(1, 2);
+            double v1 = v.getEntry(0, 0);
+            double v2 = v.getEntry(1, 0);
+            // Solving for values a, b, and c to be passed into the quadratic formula
+            double quadraticA = Math.pow(((u12*u23)/(u11*u22)) - (u13/u11), 2) + Math.pow(u23/u22, 2) + 1;         
+            double quadraticB = 2 * ((((u12*v2)/(u11*u22))-( v1/u11 )) * (((u12*u23)/(u11*u22))-(u13/u11)) + ((u23*v2)/(u22*u22)));                       
+            double quadraticC = Math.pow(((u12*v2)/(u11*u22))-(v1/u11), 2) + Math.pow(v2/u22, 2) - qTransposeTimesQ;
             
+            // Using the quadratic equation, two possible solutions for q3 can be found
+            double sqrtTerm = Math.sqrt((Math.pow(quadraticB, 2)) - (4*quadraticA*quadraticC));
+            double twoA = 2*quadraticA;
+            
+            RealMatrix qSol1 = new Array2DRowRealMatrix(numDimensions, 1);
+            RealMatrix qSol2 = new Array2DRowRealMatrix(numDimensions, 1);
+            
+            // First q solution
+            qSol1.setEntry(2, 0, (-quadraticB + sqrtTerm)/twoA);
+            System.out.println("q3Sol1=" + qSol1.getEntry(2, 0));
+            qSol1.setEntry(0, 0, threeDimensionalSolveQ1(u, v, qSol1.getEntry(2, 0)));
+            qSol1.setEntry(1, 0, threeDimensionalSolveQ2(u, v, qSol1.getEntry(2, 0)));
+            // Second q solution
+            qSol2.setEntry(2, 0, (-quadraticB - sqrtTerm)/twoA);
+            System.out.println("q3Sol2=" + qSol2.getEntry(2, 0));
+            qSol2.setEntry(0, 0, threeDimensionalSolveQ1(u, v, qSol2.getEntry(2, 0)));
+            qSol2.setEntry(1, 0, threeDimensionalSolveQ2(u, v, qSol2.getEntry(2, 0)));
+            
+            RealMatrix pSol1 = qSol1.add(c);
+            RealMatrix pSol2 = qSol2.add(c);
+            
+            System.out.println("pSol1");
+            printRealMatrix(pSol1);
+            System.out.println("pSol2");
+            printRealMatrix(pSol2);
         }
         else if(numDimensions == 2) {
             
@@ -113,6 +151,9 @@ public class TrilaterationModule {
         System.out.println("u");
         printRealMatrix(u);
         System.out.println("qT*q = " + qTransposeTimesQ);
+        System.out.println("v");
+        printRealMatrix(v);
+        
         
         return null;
     }
@@ -126,6 +167,26 @@ public class TrilaterationModule {
         }
         System.out.println();
     }
+    
+    private double threeDimensionalSolveQ1(RealMatrix u, RealMatrix v, double q3) {
+        double u11 = u.getEntry(0, 0);
+        double u12 = u.getEntry(0, 1);
+        double u13 = u.getEntry(0, 2);
+        double u22 = u.getEntry(1, 1);
+        double u23 = u.getEntry(1, 2);
+        double v1 = v.getEntry(0, 0);
+        double v2 = v.getEntry(1, 0);
+        
+        return (((u12*v2)/(u11*u22)) - (v1/u11)) + ((((u12*u23)/(u11*u22)) - (u13/u11))*q3);
+    }
+    
+    private double threeDimensionalSolveQ2(RealMatrix u, RealMatrix v, double q3) {
+        double u22 = u.getEntry(1, 1);
+        double u23 = u.getEntry(1, 2);
+        double v2 = v.getEntry(1, 0);
+        
+        return (-v2/u22) - ((u23/u22)*q3);
+    }
 
     public static void main(String[] args) {
 
@@ -136,8 +197,9 @@ public class TrilaterationModule {
                                 {3., 0., 4.},
                                 {2., 5., 1.}};
         
-        double[] distances = {4.2426, 3.7417, 5., 2.4495};
-        
-        triMod.calculateLocation(distances, positions);
+        double[] distances = {4.1231056256177, 3, 2.8284271247462, 3.3166247903554};
+        double[] distances2 = {3., 3., 4.5, 4};
+        double[] distances3 = {4.2426, 3.7417, 5, 2.4495};
+        triMod.calculateLocation(distances2, positions);
     }
 }
