@@ -5,12 +5,12 @@ import org.apache.commons.math3.linear.QRDecomposition;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.MatrixUtils;
 
-public class TrilaterationModule {
+public class Trilateration {
     private RealMatrix previousPosition;
     /**
      * Class constructor.
      */
-    public TrilaterationModule() {
+    public Trilateration() {
         
     }
 
@@ -244,7 +244,7 @@ public class TrilaterationModule {
 
     public static void main(String[] args) {
 
-        TrilaterationModule triMod = new TrilaterationModule();
+        Trilateration triMod = new Trilateration();
         
         double[][] positions = {{0., 0., 0.},
                                 {0., 2., 2.},
