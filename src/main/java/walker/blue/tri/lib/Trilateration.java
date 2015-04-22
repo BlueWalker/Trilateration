@@ -18,16 +18,11 @@ public class Trilateration {
      */
     private RealMatrix previousPosition;
 
-    /**
-     * Class constructor.
-     */
-    public Trilateration() {
-        
-    }
 
     /**
      * Calculates the location of a point in space based off of given points
      * and their distances from the point that is being calculated.
+     *
      * @param distances the distances between the given positions and the
      *                  point being calculated
      * @param positions the known points passed in where each row in the 2D
@@ -41,7 +36,7 @@ public class Trilateration {
     public double[][] calculateLocation(double[] distances, double[][] positions) {
         int numDimensions = positions[0].length;
         int numSamples = positions.length;
-         
+
         RealMatrix a = new Array2DRowRealMatrix(numDimensions, 1);
         RealMatrix b = new Array2DRowRealMatrix(numDimensions, numDimensions);
         RealMatrix c = new Array2DRowRealMatrix(numDimensions, 1);
@@ -55,12 +50,12 @@ public class Trilateration {
             RealMatrix posTimesTranspose = position.multiply(transposePosition);
             double distanceSquared = distances[i]*distances[i];
             qTransposeTimesQSecondTerm += distanceSquared;
-            
+
             // a
             RealMatrix aLeftTerm = posTimesTranspose.multiply(position);
             RealMatrix aRightTerm = position.scalarMultiply(distanceSquared);
             a = a.add(aLeftTerm.subtract(aRightTerm));
-  
+
             // b
             RealMatrix bLeftTerm = posTimesTranspose.scalarMultiply(-2);
             RealMatrix identity = MatrixUtils.createRealIdentityMatrix(numDimensions);
@@ -68,34 +63,34 @@ public class Trilateration {
             RealMatrix bMiddleTerm = identity.scalarMultiply(transposeTimesPos);
             RealMatrix bRightTerm = identity.scalarMultiply(distanceSquared);
             b = b.add(bLeftTerm.subtract(bMiddleTerm).add(bRightTerm));
-                    
+
             // c
             c = c.add(position);
-            
+
             // h
             h = h.add(posTimesTranspose);
-            
+
             // qTransposeTimesQFirstTerm
             qTransposeTimesQFirstTerm += transposeTimesPos;
         }
-        
+
         double inverseNumSamples = 1.0/numSamples;
         a = a.scalarMultiply(inverseNumSamples); // a's calculation done
         b = b.scalarMultiply(inverseNumSamples); // b's calculation done
         c = c.scalarMultiply(inverseNumSamples); // c's calculation done
-        
+
         RealMatrix twoCTimesCTranspose = c.scalarMultiply(2).multiply(c.transpose());
         // Calculate f
         RealMatrix f = a.add(b.multiply(c)).add(twoCTimesCTranspose.multiply(c)); // f's calculation done
-        
+
         // Calculate fPrime
         RealMatrix fPrime = new Array2DRowRealMatrix(numDimensions - 1, 1);
         for(int i = 0; i < fPrime.getRowDimension(); i++) {
             fPrime.setEntry(i, 0, f.getEntry(i, 0) - f.getEntry(numDimensions - 1, 0));
         }
-        
+
         h = h.scalarMultiply(-2.0/numSamples).add(twoCTimesCTranspose); // h's calculation done
-        
+
         // Calculate hPrime
         RealMatrix hPrime = new Array2DRowRealMatrix(numDimensions - 1, numDimensions);
         for(int i = 0; i < hPrime.getRowDimension(); i++) {
@@ -103,18 +98,18 @@ public class Trilateration {
                 hPrime.setEntry(i, j, h.getEntry(i, j) - h.getEntry(numDimensions - 1, j));
             }
         }
-        
+
         QRDecomposition qrDecomp = new QRDecomposition(hPrime);
         RealMatrix q = qrDecomp.getQ();
         RealMatrix u = qrDecomp.getR();
-        
+
         qTransposeTimesQFirstTerm *= -inverseNumSamples;
         qTransposeTimesQSecondTerm /= numSamples;
         double qTransposeTimesQThirdTerm = c.transpose().multiply(c).getEntry(0, 0);
         double qTransposeTimesQ = qTransposeTimesQFirstTerm + qTransposeTimesQSecondTerm + qTransposeTimesQThirdTerm;
-        
+
         RealMatrix v = q.transpose().multiply(fPrime);
-        
+
         if(numDimensions == 3) {
             double u11 = u.getEntry(0, 0);
             double u12 = u.getEntry(0, 1);
@@ -124,17 +119,17 @@ public class Trilateration {
             double v1 = v.getEntry(0, 0);
             double v2 = v.getEntry(1, 0);
             // Solving for values a, b, and c to be passed into the quadratic formula
-            double quadraticA = Math.pow(((u12*u23)/(u11*u22)) - (u13/u11), 2) + Math.pow(u23/u22, 2) + 1;         
-            double quadraticB = 2 * ((((u12*v2)/(u11*u22))-( v1/u11 )) * (((u12*u23)/(u11*u22))-(u13/u11)) + ((u23*v2)/(u22*u22)));                       
+            double quadraticA = Math.pow(((u12*u23)/(u11*u22)) - (u13/u11), 2) + Math.pow(u23/u22, 2) + 1;
+            double quadraticB = 2 * ((((u12*v2)/(u11*u22))-( v1/u11 )) * (((u12*u23)/(u11*u22))-(u13/u11)) + ((u23*v2)/(u22*u22)));
             double quadraticC = Math.pow(((u12*v2)/(u11*u22))-(v1/u11), 2) + Math.pow(v2/u22, 2) - qTransposeTimesQ;
-            
+
             // Using the quadratic equation, two possible solutions for q3 can be found
             double sqrtTerm = Math.sqrt((Math.pow(quadraticB, 2)) - (4*quadraticA*quadraticC));
             double twoA = 2*quadraticA;
-            
+
             RealMatrix qSol1 = new Array2DRowRealMatrix(numDimensions, 1);
             RealMatrix qSol2 = new Array2DRowRealMatrix(numDimensions, 1);
-            
+
             // First q solution
             qSol1.setEntry(2, 0, (-quadraticB + sqrtTerm)/twoA);
             qSol1.setEntry(0, 0, threeDimensionalSolveQ1(u, v, qSol1.getEntry(2, 0)));
@@ -143,16 +138,16 @@ public class Trilateration {
             qSol2.setEntry(2, 0, (-quadraticB - sqrtTerm)/twoA);
             qSol2.setEntry(0, 0, threeDimensionalSolveQ1(u, v, qSol2.getEntry(2, 0)));
             qSol2.setEntry(1, 0, threeDimensionalSolveQ2(u, v, qSol2.getEntry(2, 0)));
-            
+
             RealMatrix pSol1 = qSol1.add(c);
             RealMatrix pSol2 = qSol2.add(c);
-            
+
             RealMatrix solution;
-            
+
             // If this is the first calculated position, then go through
             // the longer process of using the distance formula to determine
             // which of the solutions is most accurate. Otherwise, if it
-            // is not the first calculated position, then just return the 
+            // is not the first calculated position, then just return the
             // solution that is closest to the previous position.
             if(previousPosition == null) {
                 solution = calculateBestSolution(distances, positions, pSol1, pSol2);
@@ -160,19 +155,20 @@ public class Trilateration {
             else {
                 solution = solutionClosestToPrevious(pSol1, pSol2);
             }
-            
+
             previousPosition = solution;
-            
+
             return solution.getData();
         }
         else if(numDimensions == 2) {
             // TODO: Write calculations for two-dimensions
-        }        
+        }
         return null;
     }
 
     /**
      * Prints out a matrix of type RealMatrix in a nice format.
+     *
      * @param matrix the matrix being printed
      */
     public void printRealMatrix(RealMatrix matrix) {
@@ -187,6 +183,7 @@ public class Trilateration {
 
     /**
      * Calculates Q1 in the algorithm.
+     *
      * @param u RealMatrix
      * @param v RealMatrix
      * @param q3 double
@@ -200,12 +197,13 @@ public class Trilateration {
         double u23 = u.getEntry(1, 2);
         double v1 = v.getEntry(0, 0);
         double v2 = v.getEntry(1, 0);
-        
+
         return (((u12*v2)/(u11*u22)) - (v1/u11)) + ((((u12*u23)/(u11*u22)) - (u13/u11))*q3);
     }
 
     /**
      * Calulates Q2 in the algorithm.
+     *
      * @param u RealMatrix
      * @param v RealMatrix
      * @param q3 double
@@ -215,7 +213,7 @@ public class Trilateration {
         double u22 = u.getEntry(1, 1);
         double u23 = u.getEntry(1, 2);
         double v2 = v.getEntry(1, 0);
-        
+
         return (-v2/u22) - ((u23/u22)*q3);
     }
 
@@ -223,6 +221,7 @@ public class Trilateration {
      * Calculates the best solution between the two given solutions by calculating the
      * distances between each solution's position and each of the inputted positions
      * to see which one is closest to the inputted distance measurements
+     *
      * @param distances the distances between the given positions and the
      *                  point being calculated
      * @param positions the known points passed in where each row in the 2D
@@ -251,7 +250,7 @@ public class Trilateration {
             double solBDistance = Math.sqrt(Math.pow(solutionB.getEntry(0, 0) - positions[i][0], 2) +
                     Math.pow(solutionB.getEntry(1, 0) - positions[i][1], 2) +
                     Math.pow(solutionB.getEntry(2, 0) - positions[i][2], 2));
-            
+
             double solADiff = solADistance - distances[i];
             double solBDiff = solBDistance - distances[i];
             // To prevent negative differences
@@ -261,7 +260,7 @@ public class Trilateration {
             if(solBDiff < 0) {
                 solBDiff = -solBDiff;
             }
-            
+
             if(solADiff <= solBDiff) {
                 countA++;
             }
@@ -269,7 +268,7 @@ public class Trilateration {
                 countB++;
             }
         }
-        
+
         if(countA >= countB) {
             return solutionA;
         }
@@ -287,6 +286,7 @@ public class Trilateration {
      * calculated at a rate, the calculated point that changes should be
      * more similar to the previous point calculated, thus resulting in
      * taking the closest point as the best solution.
+     *
      * @param solutionA first possible point solution
      * @param solutionB second possible point solution
      * @return the best solution as a Realmatrix, which is a point in space
@@ -302,7 +302,7 @@ public class Trilateration {
                 Math.pow(solutionB.getEntry(1, 0) - previousPosition.getEntry(1, 0), 2) +
                 Math.pow(solutionB.getEntry(2, 0) - previousPosition.getEntry(2, 0), 2)
         );
-        
+
         if(solADistance <= solBDistance) {
             return solutionA;
         }
